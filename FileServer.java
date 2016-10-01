@@ -46,7 +46,7 @@ class FileSocketHandler extends Thread
 		{
 			for(methodList i:methodList.values())
 			{
-				if(method.equals(i.toString()));
+				if(method.equals(i.toString()))
 					return true;
 			}
 			return false;
