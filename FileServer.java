@@ -262,13 +262,16 @@ class FileSocketHandler extends Thread
 		{
 			BufferedReader tempFileReader=new BufferedReader(new FileReader(filepath));
 			PrintWriter tempFileWriter=new PrintWriter(new FileWriter("C:\\ada\\HaxLogsCopy.txt"),true);
-			String cbuf;
-			while((cbuf=tempFileReader.readLine())!=null)
+			int cbuf;
+			while((cbuf=tempFileReader.read())!=-1)
 			{
-				tempFileWriter.println(cbuf);
+				System.out.println("writing :: "+cbuf);
+				tempFileWriter.write(cbuf);;
+				System.out.println("written :: ");
 				//tempFileWriter.println("\n");
 			}
 			tempFileReader.close();	
+			tempFileWriter.close();
 		}
 		 return true;
 	}
