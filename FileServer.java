@@ -1,12 +1,9 @@
 package fileDownloadServer;
 
 import java.io.BufferedReader;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -18,7 +15,9 @@ public class FileServer  {
 	{
 		FileSocketHandler f=new FileSocketHandler();
 		try {
-			f.do_DN("C://ada");
+			f.do_UP("C:\\8787 MassXP v0.4\\Config");
+			System.out.println("+++\n\n\n+++");
+			f.do_DN("C:\\8787 MassXP v0.4\\Config");
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -118,13 +117,16 @@ class FileSocketHandler extends Thread
 		
 	}
 
-	 public  boolean do_DN(String filepath) throws IOException {
+	 public  boolean do_DN(String filepath) throws IOException  
+	 {
 		
 		 File file=new File(filepath);
 		 ArrayList<String> dir=new ArrayList<String>(),files=new ArrayList<String>();
 		 String prev=null;
+		 
 		 if(file.isDirectory())
 		 {
+			prev=file.getAbsolutePath();
 			for(File filename:file.listFiles())
 			{
 				if(filename.isDirectory())
@@ -135,7 +137,10 @@ class FileSocketHandler extends Thread
 				{
 					files.add(filename.getName());
 				}
-				prev=filename.getParent();
+				
+				
+				
+				
 			}
 		 }
 		else if(!file.isDirectory() && file.exists())
@@ -147,16 +152,19 @@ class FileSocketHandler extends Thread
 		else if(!file.exists())
 		 {
 			 System.out.println(sendError("No such file found"));
-			 
 			 return false;
 		 }
 		 
 		 //JsonArray final_,next_,prev_,curr_;
+		 
 		 JsonArray file_structure=
 		 Json.createArrayBuilder()
-		 .add(Json.createObjectBuilder().add("parent", prev))
+		 .add(Json.createObjectBuilder().add("parent", prev
+				 .substring(0,file.getAbsolutePath().lastIndexOf(File.separatorChar)+1)))
+		 .add(Json.createObjectBuilder().add("this", prev))
 		 .add(Json.createObjectBuilder().add("dirs", dir.toString()))
-		 .add(Json.createObjectBuilder().add("files", files.toString())).build();
+		 .add(Json.createObjectBuilder().add("files", files.toString()))
+		 .build();
 		 
 		 //fileStream.println(file_structure.toString());
 		 new PrintWriter(System.out,true).println("LOL: "+file_structure.toString());
@@ -167,12 +175,62 @@ class FileSocketHandler extends Thread
 		 
 	}
 
-	 boolean do_UP(String filepath) {
+	 boolean do_UP(String filepath) throws IOException 
+	 {
 		// TODO Auto-generated method stub
+		 File file=new File(filepath.substring(0,filepath.lastIndexOf(File.separatorChar)+1));
+		 //System.out.println(new File(filepath).getAbsolutePath());
+		 System.out.println(file.getAbsolutePath());
+		 
+		 JsonArray file_structure;
+		 
+		 ArrayList<String> dir=new ArrayList<String>(),files=new ArrayList<String>();
+		 String prev=null;
+		 
+		 
+		 if(file.isDirectory())
+		 {
+			 prev=file.getAbsolutePath()
+					 .substring(0,file.getAbsolutePath().lastIndexOf(File.separatorChar)+1);
+			 
+			 for(File filename:file.listFiles())
+				{
+					if(filename.isDirectory())
+					{
+						dir.add(filename.getName());
+					}
+					else if(filename.isFile())
+					{
+						files.add(filename.getName());
+					}	
+				}
+		 	}
+		 else if(file.isFile() && file.exists())
+		 {
+			System.out.println(file.toString());
+			System.out.println(sendError("The chosen file is not a directory. Can not explore non-directory"));
+			return false;
+		 }
+		 else if(!file.exists())
+		 {
+			 System.out.println(sendError("No such file found"));
+			 return false;
+		 }
+		 
+		 file_structure=
+				 Json.createArrayBuilder().add(Json.createObjectBuilder().add("parent", prev))
+				 .add(Json.createObjectBuilder().add("this", file.getAbsolutePath()))
+				 .add(Json.createObjectBuilder().add("dirs", dir.toString()))
+				 .add(Json.createObjectBuilder().add("files", files.toString()))
+				 .build();
+		 new PrintWriter(System.out,true).println("LOL: "+file_structure.toString());
+		 System.out.println(sendLog("[do_UP]File Sturcture Written"));
+		 
 		 return true;
-	}
+	 }
 
-	 boolean do_DOWN(String filepath) {
+	 boolean do_DOWN(String filepath) 
+	 {
 		// TODO Auto-generated method stub
 		 return true;
 	}
