@@ -2,6 +2,9 @@ package fileDownloadServer;
 
 import java.io.BufferedReader;
 import java.io.File;
+//import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -14,14 +17,17 @@ public class FileServer  {
 	public static void main(String args[])
 	{
 		FileSocketHandler f=new FileSocketHandler();
-		try {
-			f.do_UP("C:\\8787 MassXP v0.4\\Config");
-			System.out.println("+++\n\n\n+++");
-			f.do_DN("C:\\8787 MassXP v0.4\\Config");
-		} catch (IOException e) {
+		//try {
+			//f.do_UP("C:\\8787 MassXP v0.4\\Config");
+			//System.out.println("+++\n\n\n+++");
+			//f.do_DN("C:\\8787 MassXP v0.4\\Config");
+			
+			f.start();
+			
+		//} catch (IOException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+			//e.printStackTrace();
+		//}
 	}
 
 }
@@ -40,7 +46,7 @@ class FileSocketHandler extends Thread
 		{
 			for(methodList i:methodList.values())
 			{
-				if(method==i.toString())
+				if(method.equals(i.toString()));
 					return true;
 			}
 			return false;
@@ -72,20 +78,28 @@ class FileSocketHandler extends Thread
 		return error;
 	}
 	
-	public void run()
+	public void run() 
 	{
 		String requestString,command,filepath;
 		
 		try
 		{
+			System.out.println("Command!");
+			//TODO requestString=requestStream.readLine();
+			BufferedReader in=new BufferedReader(new InputStreamReader(System.in));
+			requestString=in.readLine();
 			
-			requestString=requestStream.readLine();
 			String requestList[]=requestString.split(" ",2);
 			 //System.out.println(requestList);
 			command=requestList[0];
+			System.out.println("Command :: "+command);
 			filepath=requestList[1];
+			this.setName(filepath);
 			boolean Success;
-			if(methodList.checkService(command))
+			boolean hasMethod=FileSocketHandler.methodList.checkService(command);
+			System.out.println("hasMethod :: "+hasMethod);
+			
+			if(hasMethod)
 			{
 				switch(command)
 				{
@@ -104,7 +118,7 @@ class FileSocketHandler extends Thread
 			else
 			{
 				Success=false;
-				sendError("This service is not yet implemented\n");
+				System.out.println(sendError(Success+ " :: This service is not yet implemented\n"));
 			}
 			
 		}
@@ -167,6 +181,7 @@ class FileSocketHandler extends Thread
 		 .build();
 		 
 		 //fileStream.println(file_structure.toString());
+		//TODO link to actual stream before submitting
 		 new PrintWriter(System.out,true).println("LOL: "+file_structure.toString());
 		 System.out.println(sendLog("[do_DN]File Sturcture Written"));
 		//.out.println(s);
@@ -223,15 +238,38 @@ class FileSocketHandler extends Thread
 				 .add(Json.createObjectBuilder().add("dirs", dir.toString()))
 				 .add(Json.createObjectBuilder().add("files", files.toString()))
 				 .build();
+		 //TODO link to actual stream before submitting;
 		 new PrintWriter(System.out,true).println("LOL: "+file_structure.toString());
 		 System.out.println(sendLog("[do_UP]File Sturcture Written"));
 		 
 		 return true;
 	 }
 
-	 boolean do_DOWN(String filepath) 
+	 boolean do_DOWN(String filepath) throws IOException 
 	 {
-		// TODO Auto-generated method stub
+		File f=new File(filepath);
+		if(f.isDirectory())
+			{
+				System.out.println(sendError("Can not download directories!"));
+				return true;
+			}
+		else if(!f.exists())
+			{
+			System.out.println(sendError("Unfortunately, the file does not exist"));
+			return false;
+			}
+			else
+		{
+			BufferedReader tempFileReader=new BufferedReader(new FileReader(filepath));
+			PrintWriter tempFileWriter=new PrintWriter(new FileWriter("C:\\ada\\HaxLogsCopy.txt"),true);
+			String cbuf;
+			while((cbuf=tempFileReader.readLine())!=null)
+			{
+				tempFileWriter.println(cbuf);
+				//tempFileWriter.println("\n");
+			}
+			tempFileReader.close();	
+		}
 		 return true;
 	}
 }
