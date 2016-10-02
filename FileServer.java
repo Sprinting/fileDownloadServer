@@ -1,13 +1,16 @@
 package fileDownloadServer;
 
-import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 //import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.io.DataOutputStream;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import javax.json.*;
@@ -16,26 +19,37 @@ public class FileServer  {
 	//server sockets
 	public static void main(String args[])
 	{
-		FileSocketHandler f=new FileSocketHandler();
-		//try {
-			//f.do_UP("C:\\8787 MassXP v0.4\\Config");
-			//System.out.println("+++\n\n\n+++");
-			//f.do_DN("C:\\8787 MassXP v0.4\\Config");
+		
+		try(ServerSocket s=new ServerSocket(1807);){
+			boolean listening=true;
+			while(listening)
+			{
+				Socket clientSocket=s.accept();
+				System.out.println("Connected!");
+				new FileSocketHandler(clientSocket).start();
+				
+				
+			}
 			
-			f.start();
+			System.out.println(System.getProperty("user.dir"));
 			
-		//} catch (IOException e) {
+			
+		} 
+		catch (IOException e) 
+		{
 			// TODO Auto-generated catch block
-			//e.printStackTrace();
-		//}
+			e.printStackTrace();
+			
+		}
 	}
 
 }
 
 class FileSocketHandler extends Thread
 {
-	BufferedReader requestStream=null;
-	PrintWriter fileStream=null;
+	DataInputStream requestStream=null;
+	DataOutputStream fileStream=null;
+	PrintWriter logStream=null;
 	Socket fileSocket=null;
 	
 	public static enum methodList
@@ -57,39 +71,56 @@ class FileSocketHandler extends Thread
 	
 	FileSocketHandler(Socket socket) throws IOException
 	{
+		fileSocket=socket;
+		requestStream=null;
+		fileStream=null ;
+		this.logStream=new PrintWriter(new FileWriter("server_logs.txt",true));
 		sendLog("_init_:File Handler passes socket to a thread");
-		requestStream=new BufferedReader(new InputStreamReader(socket.getInputStream()));
-		fileStream=new PrintWriter(socket.getOutputStream(),true);
 	}
 	
 	// for testing 
-	FileSocketHandler()
+	FileSocketHandler() throws IOException
 	{
-		System.out.println(sendLog("_init_:File Handler started for testing"));
-	}
-	public String sendLog(String s)
+		requestStream=new DataInputStream(System.in);
+		fileStream=new DataOutputStream(System.out);
+		logStream=new PrintWriter(new FileWriter("server_logs_test.txt",true));
+	    System.out.println(sendLog("_init_:File Handler started for testing"));
+	}	
+	synchronized public String sendLog(String s)
 	{
-		String log= "[LOG]:: "+s+ " [TIME] :: "+System.currentTimeMillis();
+		String log= "[LOG]:: "+s+ " [TIME] :: "+System.currentTimeMillis()+System.lineSeparator();
+		logStream.append(log);
 		return log;
 	}
-	public String sendError(String s)
+	 synchronized public String sendError(String s)
 	{
-		String error ="[ERROR]:: "+s+"[TIME] :: "+System.currentTimeMillis();
+		String error ="[ERROR]:: "+s+"[TIME] :: "+System.currentTimeMillis()+System.lineSeparator();
+		logStream.append(error);
 		return error;
 	}
 	
 	public void run() 
 	{
-		String requestString,command,filepath;
+		String requestString=null;
+		String command,filepath;
 		
-		try
+		try(
+				DataInputStream in=new DataInputStream(fileSocket.getInputStream());
+				DataOutputStream out= new DataOutputStream(fileSocket.getOutputStream());
+			)
 		{
-			System.out.println("Command!");
-			//TODO requestString=requestStream.readLine();
-			BufferedReader in=new BufferedReader(new InputStreamReader(System.in));
-			requestString=in.readLine();
+			requestStream=in;
+			fileStream=out;
 			
-			String requestList[]=requestString.split(" ",2);
+			 System.out.println("Command!");
+			 
+		
+				 //System.out.println("YOHOO");
+			requestString=requestStream.readUTF();
+			
+			 //System.out.println("Not blocked!");
+			 //requestString=requestStream.readLine();
+			 String requestList[]=requestString.split(" ",2);
 			 //System.out.println(requestList);
 			command=requestList[0];
 			System.out.println("Command :: "+command);
@@ -97,7 +128,7 @@ class FileSocketHandler extends Thread
 			this.setName(filepath);
 			boolean Success;
 			boolean hasMethod=FileSocketHandler.methodList.checkService(command);
-			System.out.println("hasMethod :: "+hasMethod);
+			//System.out.println("hasMethod :: "+hasMethod);
 			
 			if(hasMethod)
 			{
@@ -124,16 +155,40 @@ class FileSocketHandler extends Thread
 		}
 		catch(IOException e)
 		{
-			e.printStackTrace();
-			System.out.println(sendError(e.getMessage()));
+			//e.printStackTrace();
+			System.out.println(sendError("Catch block"+e.getMessage()));
 			
+		}
+		catch(ArrayIndexOutOfBoundsException e)
+		{
+			System.out.println("The command format is not valid!");
+			System.out.println("Usage:"+System.lineSeparator()+"======");
+			System.out.println("<command> <filepath>"+System.lineSeparator());
+		}
+		finally
+		{
+			
+			try {
+				if(logStream!=null)
+				 logStream.close();
+				if(fileStream!=null)
+				 fileStream.close();
+				if(requestStream!=null)
+				 requestStream.close();
+				if(fileSocket!=null)
+				 fileSocket.close();
+			} catch (IOException e) {
+				
+				System.out.println("finally block!");
+				
+			}
 		}
 		
 	}
 
 	 public  boolean do_DN(String filepath) throws IOException  
 	 {
-		
+		 System.out.println("DO_DN");
 		 File file=new File(filepath);
 		 ArrayList<String> dir=new ArrayList<String>(),files=new ArrayList<String>();
 		 String prev=null;
@@ -160,17 +215,17 @@ class FileSocketHandler extends Thread
 		else if(!file.isDirectory() && file.exists())
 		{
 			System.out.println(file.toString());
-			System.out.println(sendError("The chosen file is not a directory. Can not explore non-directory"));
+			System.out.println(sendError(this.getName()+" :: The chosen file is not a directory. Can not explore non-directory"));
 			return false;
 		 }
 		else if(!file.exists())
 		 {
-			 System.out.println(sendError("No such file found"));
+			 System.out.println(sendError(this.getName()+" :: No such file found"));
 			 return false;
 		 }
 		 
 		 //JsonArray final_,next_,prev_,curr_;
-		 
+		 //System.out.println("DO_DN_1");
 		 JsonArray file_structure=
 		 Json.createArrayBuilder()
 		 .add(Json.createObjectBuilder().add("parent", prev
@@ -180,19 +235,15 @@ class FileSocketHandler extends Thread
 		 .add(Json.createObjectBuilder().add("files", files.toString()))
 		 .build();
 		 
-		 //fileStream.println(file_structure.toString());
-		//TODO link to actual stream before submitting
-		 new PrintWriter(System.out,true).println("LOL: "+file_structure.toString());
-		 System.out.println(sendLog("[do_DN]File Sturcture Written"));
-		//.out.println(s);
-		 
+		 fileStream.writeUTF(file_structure.toString());
+		 System.out.println(sendLog(this.getName()+" :: [do_DN]File Sturcture Written"));
 		 return true;
 		 
 	}
 
 	 boolean do_UP(String filepath) throws IOException 
 	 {
-		// TODO Auto-generated method stub
+		
 		 File file=new File(filepath.substring(0,filepath.lastIndexOf(File.separatorChar)+1));
 		 //System.out.println(new File(filepath).getAbsolutePath());
 		 System.out.println(file.getAbsolutePath());
@@ -223,12 +274,12 @@ class FileSocketHandler extends Thread
 		 else if(file.isFile() && file.exists())
 		 {
 			System.out.println(file.toString());
-			System.out.println(sendError("The chosen file is not a directory. Can not explore non-directory"));
+			System.out.println(sendError(this.getName()+" :: The chosen file is not a directory. Can not explore non-directory"));
 			return false;
 		 }
 		 else if(!file.exists())
 		 {
-			 System.out.println(sendError("No such file found"));
+			 System.out.println(sendError(this.getName()+" :: No such file found"));
 			 return false;
 		 }
 		 
@@ -238,10 +289,8 @@ class FileSocketHandler extends Thread
 				 .add(Json.createObjectBuilder().add("dirs", dir.toString()))
 				 .add(Json.createObjectBuilder().add("files", files.toString()))
 				 .build();
-		 //TODO link to actual stream before submitting;
-		 new PrintWriter(System.out,true).println("LOL: "+file_structure.toString());
-		 System.out.println(sendLog("[do_UP]File Sturcture Written"));
-		 
+		 fileStream.writeUTF(file_structure.toString());
+		 System.out.println(sendLog(this.getName()+" :: [do_UP]File Sturcture Written"));		 
 		 return true;
 	 }
 
@@ -250,28 +299,29 @@ class FileSocketHandler extends Thread
 		File f=new File(filepath);
 		if(f.isDirectory())
 			{
-				System.out.println(sendError("Can not download directories!"));
+				System.out.println(sendError(this.getName()+" :: Can not download directories!"));
 				return true;
 			}
 		else if(!f.exists())
 			{
-			System.out.println(sendError("Unfortunately, the file does not exist"));
+			System.out.println(sendError(this.getName()+" :: Unfortunately, the file does not exist"));
 			return false;
 			}
 			else
 		{
-			BufferedReader tempFileReader=new BufferedReader(new FileReader(filepath));
-			PrintWriter tempFileWriter=new PrintWriter(new FileWriter("C:\\ada\\HaxLogsCopy.txt"),true);
+			//TODO replace with fileStream and requestStream
+			FileInputStream tempFileReader=new  FileInputStream(filepath);
+			
 			int cbuf;
 			while((cbuf=tempFileReader.read())!=-1)
 			{
-				System.out.println("writing :: "+cbuf);
-				tempFileWriter.write(cbuf);;
-				System.out.println("written :: ");
-				//tempFileWriter.println("\n");
+				
+				fileStream.write(cbuf);;
+				
 			}
 			tempFileReader.close();	
-			tempFileWriter.close();
+			System.out.println(sendLog(this.getName()+" :: File "+filepath+" successfully downloaded"));
+			System.out.println("DONE");
 		}
 		 return true;
 	}
