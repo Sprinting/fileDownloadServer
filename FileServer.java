@@ -24,6 +24,7 @@ public class FileServer  {
 			{
 				Socket clientSocket=s.accept();
 				System.out.println("Connected!");
+				
 				new FileSocketHandler(clientSocket).start();
 				
 				
@@ -109,46 +110,51 @@ class FileSocketHandler extends Thread
 		{
 			requestStream=in;
 			fileStream=out;
-			
-			 System.out.println("Command!");
-			 
-		
-				 //System.out.println("YOHOO");
-			requestString=requestStream.readUTF();
-			
-			 //System.out.println("Not blocked!");
-			 //requestString=requestStream.readLine();
-			 String requestList[]=requestString.split(" ",2);
-			 //System.out.println(requestList);
-			command=requestList[0];
-			System.out.println("Command :: "+command);
-			filepath=requestList[1];
-			this.setName(filepath);
-			boolean Success;
-			boolean hasMethod=FileSocketHandler.methodList.checkService(command);
-			//System.out.println("hasMethod :: "+hasMethod);
-			
-			if(hasMethod)
+			boolean continue_=true;
+			do_DN(System.getProperty("user.home"));
+			while (continue_)
 			{
-				switch(command)
+				System.out.println("Command!");
+				requestString=requestStream.readUTF();
+				
+				if(requestString.equals("STOP"))
 				{
-					case "DOWN":
-						Success=do_DOWN(filepath);
-						break;
-					case "UP":
-						Success=do_UP(filepath);
-						break;
-					case "DN":
-						Success=do_DN(filepath);
-						break;
+					continue_=false;
+					break;
+				}
+					
+				
+				String requestList[]=requestString.split(" ",2);
+				command=requestList[0];
+				System.out.println("Command :: "+command);
+				filepath=requestList[1];
+				this.setName(filepath);
+				boolean Success;
+				boolean hasMethod=FileSocketHandler.methodList.checkService(command);
+				if(hasMethod)
+				{
+					switch(command)
+					{
+						case "DOWN":
+							Success=do_DOWN(filepath);
+							break;
+						case "UP":
+							Success=do_UP(filepath);
+							break;
+						case "DN":
+							Success=do_DN(filepath);
+							break;
+					}
+					
+				}
+				else
+				{
+					Success=false;
+					System.out.println(sendError(Success+ " :: This service is not yet implemented\n"));
 				}
 				
 			}
-			else
-			{
-				Success=false;
-				System.out.println(sendError(Success+ " :: This service is not yet implemented\n"));
-			}
+			
 			
 		}
 		catch(IOException e)
@@ -165,6 +171,7 @@ class FileSocketHandler extends Thread
 		}
 		finally
 		{
+			System.out.println("Closing resources!");
 			
 			try {
 				if(logStream!=null)
@@ -297,20 +304,27 @@ class FileSocketHandler extends Thread
 		File f=new File(filepath);
 		if(f.isDirectory())
 			{
+				fileStream.writeInt(-1);
+				fileStream.flush();
 				System.out.println(sendError(this.getName()+" :: Can not download directories!"));
 				return true;
 			}
 		else if(!f.exists())
 			{
+			fileStream.writeInt(-2);
+			fileStream.flush();
 			System.out.println(sendError(this.getName()+" :: Unfortunately, the file does not exist"));
 			return false;
 			}
 			else
-		{
+		  {
+				fileStream.writeInt(0);
+				fileStream.flush();
 			//TODO replace with fileStream and requestStream
 			FileInputStream tempFileReader=new  FileInputStream(filepath);
 			
 			int cbuf;
+			
 			while((cbuf=tempFileReader.read())!=-1)
 			{
 				
