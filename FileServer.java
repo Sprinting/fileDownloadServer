@@ -143,6 +143,7 @@ class FileSocketHandler extends Thread
 				logStream.close();
 				fileStream.close();
 				requestStream.close();
+				fileSocket.close();
 			} catch (IOException e) {
 				
 				System.out.println("finally block!");
