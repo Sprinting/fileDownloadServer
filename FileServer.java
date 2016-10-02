@@ -1,13 +1,16 @@
 package fileDownloadServer;
 
-import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 //import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.io.DataOutputStream;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import javax.json.*;
@@ -17,20 +20,26 @@ public class FileServer  {
 	public static void main(String args[])
 	{
 		
-		try {
-			//f.do_UP("C:\\8787 MassXP v0.4\\Config");
-			//System.out.println("+++\n\n\n+++");
-			//f.do_DN("C:\\8787 MassXP v0.4\\Config");
-			FileSocketHandler f=new FileSocketHandler(),f1=new FileSocketHandler();
-			f.start();
+		try(ServerSocket s=new ServerSocket(1807);){
+			boolean listening=true;
+			while(listening)
+			{
+				Socket clientSocket=s.accept();
+				System.out.println("Connected!");
+				new FileSocketHandler(clientSocket).start();
+				
+				
+			}
+			
 			System.out.println(System.getProperty("user.dir"));
-			f1.start();
+			
 			
 		} 
 		catch (IOException e) 
 		{
 			// TODO Auto-generated catch block
-			//e.printStackTrace();
+			e.printStackTrace();
+			
 		}
 	}
 
@@ -38,8 +47,8 @@ public class FileServer  {
 
 class FileSocketHandler extends Thread
 {
-	BufferedReader requestStream=null;
-	PrintWriter fileStream=null;
+	DataInputStream requestStream=null;
+	DataOutputStream fileStream=null;
 	PrintWriter logStream=null;
 	Socket fileSocket=null;
 	
@@ -62,8 +71,9 @@ class FileSocketHandler extends Thread
 	
 	FileSocketHandler(Socket socket) throws IOException
 	{
-		requestStream=new BufferedReader(new InputStreamReader(socket.getInputStream()));
-		fileStream=new PrintWriter(socket.getOutputStream(),true);
+		fileSocket=socket;
+		requestStream=null;
+		fileStream=null ;
 		this.logStream=new PrintWriter(new FileWriter("server_logs.txt",true));
 		sendLog("_init_:File Handler passes socket to a thread");
 	}
@@ -71,8 +81,8 @@ class FileSocketHandler extends Thread
 	// for testing 
 	FileSocketHandler() throws IOException
 	{
-		requestStream=new BufferedReader(new InputStreamReader(System.in));
-		fileStream=new PrintWriter(System.out,true);
+		requestStream=new DataInputStream(System.in);
+		fileStream=new DataOutputStream(System.out);
 		logStream=new PrintWriter(new FileWriter("server_logs_test.txt",true));
 	    System.out.println(sendLog("_init_:File Handler started for testing"));
 	}	
@@ -91,12 +101,25 @@ class FileSocketHandler extends Thread
 	
 	public void run() 
 	{
-		String requestString,command,filepath;
+		String requestString=null;
+		String command,filepath;
 		
-		try
+		try(
+				DataInputStream in=new DataInputStream(fileSocket.getInputStream());
+				DataOutputStream out= new DataOutputStream(fileSocket.getOutputStream());
+			)
 		{
+			requestStream=in;
+			fileStream=out;
+			
 			 System.out.println("Command!");
-			 requestString=requestStream.readLine();
+			 
+		
+				 //System.out.println("YOHOO");
+			requestString=requestStream.readUTF();
+			
+			 //System.out.println("Not blocked!");
+			 //requestString=requestStream.readLine();
 			 String requestList[]=requestString.split(" ",2);
 			 //System.out.println(requestList);
 			command=requestList[0];
@@ -105,7 +128,7 @@ class FileSocketHandler extends Thread
 			this.setName(filepath);
 			boolean Success;
 			boolean hasMethod=FileSocketHandler.methodList.checkService(command);
-			System.out.println("hasMethod :: "+hasMethod);
+			//System.out.println("hasMethod :: "+hasMethod);
 			
 			if(hasMethod)
 			{
@@ -136,14 +159,24 @@ class FileSocketHandler extends Thread
 			System.out.println(sendError("Catch block"+e.getMessage()));
 			
 		}
+		catch(ArrayIndexOutOfBoundsException e)
+		{
+			System.out.println("The command format is not valid!");
+			System.out.println("Usage:"+System.lineSeparator()+"======");
+			System.out.println("<command> <filepath>"+System.lineSeparator());
+		}
 		finally
 		{
 			
 			try {
-				logStream.close();
-				fileStream.close();
-				requestStream.close();
-				fileSocket.close();
+				if(logStream!=null)
+				 logStream.close();
+				if(fileStream!=null)
+				 fileStream.close();
+				if(requestStream!=null)
+				 requestStream.close();
+				if(fileSocket!=null)
+				 fileSocket.close();
 			} catch (IOException e) {
 				
 				System.out.println("finally block!");
@@ -192,7 +225,7 @@ class FileSocketHandler extends Thread
 		 }
 		 
 		 //JsonArray final_,next_,prev_,curr_;
-		 
+		 //System.out.println("DO_DN_1");
 		 JsonArray file_structure=
 		 Json.createArrayBuilder()
 		 .add(Json.createObjectBuilder().add("parent", prev
@@ -202,7 +235,7 @@ class FileSocketHandler extends Thread
 		 .add(Json.createObjectBuilder().add("files", files.toString()))
 		 .build();
 		 
-		 fileStream.println("LOL: "+file_structure.toString());
+		 fileStream.writeUTF(file_structure.toString());
 		 System.out.println(sendLog(this.getName()+" :: [do_DN]File Sturcture Written"));
 		 return true;
 		 
@@ -256,7 +289,7 @@ class FileSocketHandler extends Thread
 				 .add(Json.createObjectBuilder().add("dirs", dir.toString()))
 				 .add(Json.createObjectBuilder().add("files", files.toString()))
 				 .build();
-		 fileStream.println("LOL: "+file_structure.toString());
+		 fileStream.writeUTF(file_structure.toString());
 		 System.out.println(sendLog(this.getName()+" :: [do_UP]File Sturcture Written"));		 
 		 return true;
 	 }
@@ -277,7 +310,7 @@ class FileSocketHandler extends Thread
 			else
 		{
 			//TODO replace with fileStream and requestStream
-			BufferedReader tempFileReader=new BufferedReader(new FileReader(filepath));
+			FileInputStream tempFileReader=new  FileInputStream(filepath);
 			
 			int cbuf;
 			while((cbuf=tempFileReader.read())!=-1)
