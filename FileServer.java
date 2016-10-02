@@ -8,6 +8,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import javax.json.*;
@@ -17,20 +18,26 @@ public class FileServer  {
 	public static void main(String args[])
 	{
 		
-		try {
-			//f.do_UP("C:\\8787 MassXP v0.4\\Config");
-			//System.out.println("+++\n\n\n+++");
-			//f.do_DN("C:\\8787 MassXP v0.4\\Config");
-			FileSocketHandler f=new FileSocketHandler(),f1=new FileSocketHandler();
-			f.start();
+		try(ServerSocket s=new ServerSocket(1807);){
+			boolean listening=true;
+			while(listening)
+			{
+				Socket clientSocket=s.accept();
+				System.out.println("Connected!");
+				new FileSocketHandler(clientSocket).start();
+				
+				
+			}
+			
 			System.out.println(System.getProperty("user.dir"));
-			f1.start();
+			
 			
 		} 
 		catch (IOException e) 
 		{
 			// TODO Auto-generated catch block
-			//e.printStackTrace();
+			e.printStackTrace();
+			
 		}
 	}
 
@@ -62,8 +69,9 @@ class FileSocketHandler extends Thread
 	
 	FileSocketHandler(Socket socket) throws IOException
 	{
-		requestStream=new BufferedReader(new InputStreamReader(socket.getInputStream()));
-		fileStream=new PrintWriter(socket.getOutputStream(),true);
+		fileSocket=socket;
+		requestStream=null;
+		fileStream=null ;
 		this.logStream=new PrintWriter(new FileWriter("server_logs.txt",true));
 		sendLog("_init_:File Handler passes socket to a thread");
 	}
@@ -91,12 +99,25 @@ class FileSocketHandler extends Thread
 	
 	public void run() 
 	{
-		String requestString,command,filepath;
+		String requestString=null;
+		String command,filepath;
 		
-		try
+		try(
+				BufferedReader in=new BufferedReader(new InputStreamReader(fileSocket.getInputStream()));
+				PrintWriter out= new PrintWriter(fileSocket.getOutputStream(),true);
+			)
 		{
+			requestStream=in;
+			fileStream=out;
+			
 			 System.out.println("Command!");
-			 requestString=requestStream.readLine();
+			 
+		
+				 //System.out.println("YOHOO");
+			requestString=requestStream.readLine();
+			
+			 //System.out.println("Not blocked!");
+			 //requestString=requestStream.readLine();
 			 String requestList[]=requestString.split(" ",2);
 			 //System.out.println(requestList);
 			command=requestList[0];
@@ -105,7 +126,7 @@ class FileSocketHandler extends Thread
 			this.setName(filepath);
 			boolean Success;
 			boolean hasMethod=FileSocketHandler.methodList.checkService(command);
-			System.out.println("hasMethod :: "+hasMethod);
+			//System.out.println("hasMethod :: "+hasMethod);
 			
 			if(hasMethod)
 			{
@@ -136,14 +157,24 @@ class FileSocketHandler extends Thread
 			System.out.println(sendError("Catch block"+e.getMessage()));
 			
 		}
+		catch(ArrayIndexOutOfBoundsException e)
+		{
+			System.out.println("The command format is not valid!");
+			System.out.println("Usage:"+System.lineSeparator()+"======");
+			System.out.println("<command> <filepath>"+System.lineSeparator());
+		}
 		finally
 		{
 			
 			try {
-				logStream.close();
-				fileStream.close();
-				requestStream.close();
-				fileSocket.close();
+				if(logStream!=null)
+				 logStream.close();
+				if(fileStream!=null)
+				 fileStream.close();
+				if(requestStream!=null)
+				 requestStream.close();
+				if(fileSocket!=null)
+				 fileSocket.close();
 			} catch (IOException e) {
 				
 				System.out.println("finally block!");
@@ -192,7 +223,7 @@ class FileSocketHandler extends Thread
 		 }
 		 
 		 //JsonArray final_,next_,prev_,curr_;
-		 
+		 //System.out.println("DO_DN_1");
 		 JsonArray file_structure=
 		 Json.createArrayBuilder()
 		 .add(Json.createObjectBuilder().add("parent", prev
@@ -202,7 +233,7 @@ class FileSocketHandler extends Thread
 		 .add(Json.createObjectBuilder().add("files", files.toString()))
 		 .build();
 		 
-		 fileStream.println("LOL: "+file_structure.toString());
+		 fileStream.println(file_structure.toString());
 		 System.out.println(sendLog(this.getName()+" :: [do_DN]File Sturcture Written"));
 		 return true;
 		 
@@ -256,7 +287,7 @@ class FileSocketHandler extends Thread
 				 .add(Json.createObjectBuilder().add("dirs", dir.toString()))
 				 .add(Json.createObjectBuilder().add("files", files.toString()))
 				 .build();
-		 fileStream.println("LOL: "+file_structure.toString());
+		 fileStream.println(file_structure.toString());
 		 System.out.println(sendLog(this.getName()+" :: [do_UP]File Sturcture Written"));		 
 		 return true;
 	 }
