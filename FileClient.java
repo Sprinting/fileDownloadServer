@@ -5,11 +5,15 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 //import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.StringReader;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Arrays;
+
 import javax.json.*;
 
 public class FileClient {
@@ -18,7 +22,7 @@ public class FileClient {
 	{
 		try
 		{
-			ClientSocketHandler c1=new ClientSocketHandler("DOWN C:\\ada\\a.exe");
+			ClientSocketHandler c1=new ClientSocketHandler("DOWN D:\\chrs.txt");
 			c1.start();
 		}
 		finally
@@ -32,8 +36,8 @@ public class FileClient {
 class ClientSocketHandler extends Thread
 {
 	String request=null;
-	String response=null;
-	
+	String response="";
+	String selectedFilename="default.txt";
 	ClientSocketHandler(String request) throws IOException
 	{
 		
@@ -54,20 +58,87 @@ class ClientSocketHandler extends Thread
 				)
 		{
 			
-			request.split(" ", 2);
+			String cmd=request.split(" ", 2)[0];
+			String response=null;
 			requestStream.writeUTF(request);
 			requestStream.flush();
-			int rbuff;
-			//rbuff=responseStream.read();
-			FileOutputStream fileStream=new FileOutputStream("a.exe");
-			while((rbuff=responseStream.read())!=-1)
+			
+			
+			switch(cmd)
 			{
+			case "DN":
+			case "UP":
+			{
+				JsonString parent=null,curr=null,dirs=null,files=null;
 				
-				 //response=response+(char)rbuff;
-				 fileStream.write(rbuff);
+				response=responseStream.readUTF();
+				
+				
+				
+				JsonReader list=Json.createReader(new StringReader(response));
+				JsonArray file_structure=list.readArray();
+				//int i=0;
+				for(JsonValue v:file_structure)
+				{
+					
+					JsonObject object=(JsonObject)v;
+					
+					for(String i:object.keySet())
+					{
+						switch(i)
+						{
+						case "parent":
+							parent=object.getJsonString("parent");
+						case "this":
+							curr=object.getJsonString("this");
+						case "dirs":
+							dirs=object.getJsonString("dirs");
+						case "files":
+							files=object.getJsonString("files");
+						}
+					}
+					
+				}
+				
+				 ArrayList<String> directoryList=
+						 new ArrayList<String>(Arrays
+						 .asList(dirs.getString()
+								 .substring(1,dirs.getString()
+										 .length()-1).split(", ")));
+				
+				 ArrayList<String> fileList=
+						 new ArrayList<String>(Arrays
+						 .asList(files.getString()
+								 .substring(1,files.getString()
+										 .length()-1).split(", ")));
+				
+				
+				for(String i:directoryList)
+					System.out.println(i);
+				
+				System.out.println();
+				
+				for(String i:fileList)
+					System.out.println(i);
+				
+				
+				
+				
+				
 			}
-			System.out.println(response);
-			fileStream.close();
+			case "DOWN":
+			{
+				setSelectedFilename("");
+				try(FileOutputStream f=new FileOutputStream(selectedFilename);)
+				{
+					int rbuff;
+					while((rbuff=responseStream.read())!=-1)
+					{
+						f.write(rbuff);
+					}
+				}
+			}
+			}
 			
 		}
 		catch(ArrayIndexOutOfBoundsException e)
@@ -81,5 +152,18 @@ class ClientSocketHandler extends Thread
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+	}
+	public void setSelectedFilename(String s)
+	{
+	
+		if(request.split(" ",2)[0].equals("DOWN"))
+		{
+			if(s.equals(""))
+				selectedFilename=request.split(" ",2)[1]
+						.substring(request.split(" ", 2)[1].lastIndexOf("\\")+1);
+			else
+				selectedFilename=s;
+		}
+		
 	}
 }
