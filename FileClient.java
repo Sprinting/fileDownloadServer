@@ -1,31 +1,36 @@
 package fileDownloadServer;
 
 
-import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-import java.io.File;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
-//import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
-
+import java.util.Scanner;
 import javax.json.*;
+
+
 
 public class FileClient {
 	//client sockets
 	public static void main(String args[]) throws UnknownHostException, IOException
 	{
-		try
+		try(Scanner s=new Scanner(System.in);)
 		{
-			ClientSocketHandler c1=new ClientSocketHandler("DOWN D:\\chrs.txt");
-			c1.start();
+			while(true)
+			{
+				ClientSocketHandler.printCommandList();
+				System.out.println("Usage"+System.lineSeparator()+"<cmd> <path>");
+				String userRequest=s.nextLine();
+				new ClientSocketHandler(userRequest).start();
+			}
+			
+			
+			
 		}
 		finally
 		{
@@ -50,13 +55,17 @@ class ClientSocketHandler extends Thread
 	ClientSocketHandler(String request) throws IOException
 	{
 		
-		this.request=request;
-		
+		this.request=request.replace("/", "\\");
+		this.request=this.request.replace("\\", "\\");
+		this.request=this.request.replace("//", "\\");
+		System.out.println("Constructor: request:"+this.request);
 	}
 	
 	void processInput() throws IOException
 	{
-		JsonString parent=null,curr=null,dirs=null,files=null;
+		@SuppressWarnings("unused")
+		JsonString parent=null,curr=null;
+		JsonString dirs=null,files=null;
 		
 		response=serverResponseStream.readUTF();
 		
@@ -99,19 +108,46 @@ class ClientSocketHandler extends Thread
 						 .substring(1,files.getString()
 								 .length()-1).split(", ")));
 		
-		
+		System.out.println("++++++"+System.lineSeparator()+"++++++");
+		System.out.println();
+		System.out.println("Directory List");
+		System.out.println();
 		for(String i:directoryList)
 			System.out.println(i);
 		
+		System.out.println("++++++"+System.lineSeparator()+"++++++");
 		System.out.println();
-		
+		System.out.println("Files List");
+		System.out.println();
 		for(String i:fileList)
 			System.out.println(i);
 		
 		
 		
 	}
-	
+	public static enum methodList
+	{
+		HOME,DOWN,UP,DN;
+		
+		public static Boolean checkService(String method)
+		{
+			for(methodList i:methodList.values())
+			{
+				if(method.equals(i.toString()))
+					return true;
+			}
+			return false;
+		}
+	}
+	public static void printCommandList()
+	{
+		System.out.println("Commands Available on this system:");
+		System.out.println();
+		for(Object i:methodList.values())
+		{
+			System.out.println(i.toString());
+		}
+	}
 	public void run()
 	{
 		this.setName(request);
@@ -120,72 +156,87 @@ class ClientSocketHandler extends Thread
 				Socket socket=new Socket("localhost",1807);
 				DataInputStream responseStream=new DataInputStream(socket.getInputStream());
 				DataOutputStream requestStream=new DataOutputStream(socket.getOutputStream());	
-				BufferedReader stdIn=new BufferedReader(new InputStreamReader(System.in));
+				//BufferedReader stdIn=new BufferedReader(new InputStreamReader(System.in));
 				)
 		{
 			
 			
 			serverResponseStream=responseStream;
-			processInput();
-			String userRequest=stdIn.readLine();
+			System.out.println("Client Active!");
+			//System.out.println(responseStream.readUTF());
+			//processInput();
 			
-			boolean continue_=true;
-			while(continue_)
-			{
-				this.getRequest(userRequest);
-				if(request.equals("STOP"))
-				{	
-					requestStream.writeUTF(request);
-					continue_=false;
-				}
-				String cmd=request.split(" ", 2)[0];
+			
+			//boolean continue_=true;
+			//while(continue_)
+			//{
+				//System.out.println(":>>>:");
+				//String userRequest=stdIn.readLine();
+				//this.getRequest(userRequest);
 				requestStream.writeUTF(request);
 				requestStream.flush();
-				switch(cmd)
-				{
-				case "DN":
-				case "UP":
-				{
-					processInput();
-					break;		
+				if(request.equals("HOME"))
+				{	
+					//System.out.println("here!");
+					System.out.println(responseStream.readUTF());	
 				}
-				case "DOWN":
+				else
 				{
-					int errorCode=responseStream.readInt();
-					switch(errorCode)
+					String cmd=request.split(" ", 2)[0];
+					
+					//requestStream.flush();
+					switch(cmd)
 					{
-					case 0:
+					case "DN":
+					case "UP":
 					{
-						setSelectedFilename("");
-						try(FileOutputStream f=new FileOutputStream(selectedFilename);)
+						processInput();
+						break;		
+					}
+					case "DOWN":
+					{
+						int errorCode=responseStream.readInt();
+						switch(errorCode)
 						{
-							int rbuff;
-							while((rbuff=responseStream.read())!=-1)
+						case 0:
+						{
+							setSelectedFilename("");
+							//System.out.println(selectedFilename);
+							try(FileOutputStream f=new FileOutputStream(selectedFilename);)
 							{
-								f.write(rbuff);
+								int rbuff;
+								while((rbuff=responseStream.read())!=-1)
+								{
+									f.write(rbuff);
+									
+								}
+								//f.close();
 							}
-							f.flush();
+							
+							break;
 						}
-						break;
-					}
-					case -1:
-					{
-						System.out.println("Oops! Can't download a directory!");
-						break;
-					}
-					case -2:
-					{
-						System.out.println("Oops! The requested file does not "
-								+ "exist on the remote system!");
+						case -1:
+						{
+							System.out.println("Oops! Can't download a directory!");
+							break;
+						}
+						case -2:
+						{
+							System.out.println("Oops! The requested file does not "
+									+ "exist on the remote system!");
+							break;
+						}
+						}
+						
+						
 						break;
 					}
 					}
 					
-					break;
-				}
 				}
 				
-			}
+				
+			//}
 			
 			
 		}
@@ -197,7 +248,7 @@ class ClientSocketHandler extends Thread
 		} 
 		catch (IOException e) 
 		{
-			// TODO Auto-generated catch block
+			
 			e.printStackTrace();
 		}
 	}

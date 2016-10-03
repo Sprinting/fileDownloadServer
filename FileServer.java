@@ -53,7 +53,7 @@ class FileSocketHandler extends Thread
 	
 	public static enum methodList
 	{
-		DOWN,UP,DN;
+		HOME,DOWN,UP,DN;
 		
 		public static Boolean checkService(String method)
 		{
@@ -110,50 +110,63 @@ class FileSocketHandler extends Thread
 		{
 			requestStream=in;
 			fileStream=out;
-			boolean continue_=true;
-			do_DN(System.getProperty("user.home"));
-			while (continue_)
-			{
+			//boolean continue_=true;
+			
+			//do_DN(System.getProperty("user.home"));
+			//while (continue_)
+			//{
 				System.out.println("Command!");
 				requestString=requestStream.readUTF();
 				
-				if(requestString.equals("STOP"))
+				System.out.println("Request :: "+requestString);
+				
+				/*if(requestString.equals("STOP"))
 				{
 					continue_=false;
-					break;
+					//break;
+				}*/
+				if(requestString.equals("HOME"))
+				{
+					do_HOME();
+					//break;
 				}
 					
-				
-				String requestList[]=requestString.split(" ",2);
-				command=requestList[0];
-				System.out.println("Command :: "+command);
-				filepath=requestList[1];
-				this.setName(filepath);
-				boolean Success;
-				boolean hasMethod=FileSocketHandler.methodList.checkService(command);
-				if(hasMethod)
+				else
 				{
-					switch(command)
+					String requestList[]=requestString.split(" ",2);
+					command=requestList[0];
+					System.out.println("Command :: "+command);
+					filepath=requestList[1];
+					this.setName(filepath);
+					boolean Success;
+					boolean hasMethod=FileSocketHandler.methodList.checkService(command);
+					if(hasMethod)
 					{
-						case "DOWN":
-							Success=do_DOWN(filepath);
-							break;
-						case "UP":
-							Success=do_UP(filepath);
-							break;
-						case "DN":
-							Success=do_DN(filepath);
-							break;
+						switch(command)
+						{
+							case "DOWN":
+								Success=do_DOWN(filepath);
+								break;
+							case "UP":
+								Success=do_UP(filepath);
+								break;
+							case "DN":
+								Success=do_DN(filepath);
+								break;
+							
+						}
+						
+					}
+					else
+					{
+						Success=false;
+						System.out.println(sendError(Success+ " :: This service is not yet implemented\n"));
 					}
 					
 				}
-				else
-				{
-					Success=false;
-					System.out.println(sendError(Success+ " :: This service is not yet implemented\n"));
-				}
 				
-			}
+				
+			//}
 			
 			
 		}
@@ -171,7 +184,7 @@ class FileSocketHandler extends Thread
 		}
 		finally
 		{
-			System.out.println("Closing resources!");
+			System.out.println(this.getName()+" :: Closing resources!");
 			
 			try {
 				if(logStream!=null)
@@ -191,7 +204,13 @@ class FileSocketHandler extends Thread
 		
 	}
 
-	 public  boolean do_DN(String filepath) throws IOException  
+	 private boolean do_HOME() throws IOException 
+	 {
+		 fileStream.writeUTF("Remote System Home :: "+System.getProperty("user.home"));
+		 return true;
+	 }
+
+	public  boolean do_DN(String filepath) throws IOException  
 	 {
 		 System.out.println("DO_DN");
 		 File file=new File(filepath);
