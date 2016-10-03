@@ -58,7 +58,7 @@ class ClientSocketHandler extends Thread
 		this.request=request.replace("/", "\\");
 		this.request=this.request.replace("\\", "\\");
 		this.request=this.request.replace("//", "\\");
-		System.out.println("Constructor: request:"+this.request);
+		//System.out.println("Constructor: request:"+this.request);
 	}
 	
 	void processInput() throws IOException
@@ -146,6 +146,35 @@ class ClientSocketHandler extends Thread
 		for(Object i:methodList.values())
 		{
 			System.out.println(i.toString());
+			
+			switch(i.toString())
+			{
+			case "HOME":
+			{
+				System.out.println("This command prints "
+						+System.lineSeparator()+ "the remote systems home direcotry"
+						+System.lineSeparator());
+				break;
+			}
+			case "DOWN":
+			{
+				System.out.println("Downloads the requested file to "
+						+System.getProperty("user.dir")+System.lineSeparator());
+				break;
+			}
+			case "UP":
+			{
+				System.out.println("Navigates up from the specified directory"
+						+System.lineSeparator()+ "(Goes to the parent directory)"
+						+System.lineSeparator());
+				break;
+			}
+			case "DN":
+			{
+				System.out.println("Navigates down to the specified directory"
+						+System.lineSeparator());
+			}
+			}
 		}
 	}
 	public void run()
